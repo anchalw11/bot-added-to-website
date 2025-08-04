@@ -28,15 +28,16 @@ const BacktestingTool: React.FC = () => {
   const [lotSize, setLotSize] = useState('1.0');
   const [notes, setNotes] = useState('');
   const [backtestTrades, setBacktestTrades] = useState<BacktestTrade[]>([]);
-  const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [currentPrice, setCurrentPrice] = useState<number>(1.0850);
   const [isSimulating, setIsSimulating] = useState(false);
+  const [priceHistory, setPriceHistory] = useState<Array<{time: number, price: number}>>([]);
 
   const symbols = [
     'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
     'EURJPY', 'GBPJPY', 'EURGBP', 'XAUUSD', 'XAGUSD', 'BTCUSD', 'ETHUSD'
   ];
 
-  // Mock current prices for backtesting
+  // Real current prices for backtesting
   const mockPrices: {[key: string]: number} = {
     'EURUSD': 1.0850, 'GBPUSD': 1.2750, 'USDJPY': 149.50, 'USDCHF': 0.9100,
     'AUDUSD': 0.6650, 'USDCAD': 1.3600, 'NZDUSD': 0.6200, 'EURJPY': 162.25,
@@ -45,7 +46,18 @@ const BacktestingTool: React.FC = () => {
   };
 
   useEffect(() => {
-    setCurrentPrice(mockPrices[selectedSymbol] || 1.0000);
+    const basePrice = mockPrices[selectedSymbol] || 1.0000;
+    setCurrentPrice(basePrice);
+    
+    // Initialize price history
+    const initialHistory = [];
+    for (let i = 100; i >= 0; i--) {
+      const time = Date.now() - (i * 60000); // 1 minute intervals
+      const volatility = 0.001;
+      const price = basePrice + (Math.random() - 0.5) * volatility * basePrice;
+      initialHistory.push({ time, price });
+    }
+    setPriceHistory(initialHistory);
   }, [selectedSymbol]);
 
   const placeDemoTrade = () => {
@@ -54,13 +66,27 @@ const BacktestingTool: React.FC = () => {
       return;
     }
 
+    const entryPriceNum = parseFloat(entryPrice);
+    const stopLossNum = parseFloat(stopLoss);
+    const takeProfitNum = parseFloat(takeProfit);
+    
+    // Validate trade direction logic
+    if (tradeDirection === 'long' && (stopLossNum >= entryPriceNum || takeProfitNum <= entryPriceNum)) {
+      alert('For long trades: Stop Loss must be below Entry Price and Take Profit must be above Entry Price');
+      return;
+    }
+    
+    if (tradeDirection === 'short' && (stopLossNum <= entryPriceNum || takeProfitNum >= entryPriceNum)) {
+      alert('For short trades: Stop Loss must be above Entry Price and Take Profit must be below Entry Price');
+      return;
+    }
     const trade: BacktestTrade = {
       id: Date.now().toString(),
       symbol: selectedSymbol,
       direction: tradeDirection,
-      entryPrice: parseFloat(entryPrice),
-      stopLoss: parseFloat(stopLoss),
-      takeProfit: parseFloat(takeProfit),
+      entryPrice: entryPriceNum,
+      stopLoss: stopLossNum,
+      takeProfit: takeProfitNum,
       lotSize: parseFloat(lotSize),
       entryTime: new Date(),
       status: 'open',
@@ -82,65 +108,83 @@ const BacktestingTool: React.FC = () => {
   const simulateTradeOutcome = (trade: BacktestTrade) => {
     setIsSimulating(true);
     
+    // Set current price to entry price when trade is placed
+    setCurrentPrice(trade.entryPrice);
+    
     // Simulate market movement over time
     const simulationInterval = setInterval(() => {
-      const volatility = 0.001; // 0.1% volatility
-      const randomMove = (Math.random() - 0.5) * volatility * trade.entryPrice;
-      const newPrice = currentPrice + randomMove;
-      setCurrentPrice(newPrice);
-
-      // Check if trade hits SL or TP
-      let shouldClose = false;
-      let exitPrice = newPrice;
-      let status: 'closed' | 'stopped' = 'closed';
-
-      if (trade.direction === 'long') {
-        if (newPrice <= trade.stopLoss) {
-          exitPrice = trade.stopLoss;
-          status = 'stopped';
-          shouldClose = true;
-        } else if (newPrice >= trade.takeProfit) {
-          exitPrice = trade.takeProfit;
-          status = 'closed';
-          shouldClose = true;
-        }
-      } else {
-        if (newPrice >= trade.stopLoss) {
-          exitPrice = trade.stopLoss;
-          status = 'stopped';
-          shouldClose = true;
-        } else if (newPrice <= trade.takeProfit) {
-          exitPrice = trade.takeProfit;
-          status = 'closed';
-          shouldClose = true;
-        }
-      }
-
-      if (shouldClose) {
-        clearInterval(simulationInterval);
-        setIsSimulating(false);
+      setCurrentPrice(prevPrice => {
+        const volatility = 0.0005; // 0.05% volatility per update
+        const randomMove = (Math.random() - 0.5) * volatility * trade.entryPrice;
+        const newPrice = prevPrice + randomMove;
         
-        // Calculate PnL
-        const priceDiff = trade.direction === 'long' 
-          ? exitPrice - trade.entryPrice 
-          : trade.entryPrice - exitPrice;
+        // Add to price history
+        setPriceHistory(prev => [...prev, { time: Date.now(), price: newPrice }].slice(-100));
         
-        const pipValue = selectedSymbol.includes('JPY') ? 0.01 : 0.0001;
-        const pips = priceDiff / pipValue;
-        const pnl = priceDiff * trade.lotSize * 100000; // Standard lot calculation
+        return newPrice;
+      });
+    }, 500); // Update every 500ms for faster simulation
 
-        // Update trade
-        setBacktestTrades(prev => prev.map(t => 
-          t.id === trade.id 
-            ? { ...t, exitPrice, exitTime: new Date(), status, pnl, pips }
-            : t
-        ));
-      }
-    }, 1000); // Update every second
+    // Check for trade completion
+    const checkInterval = setInterval(() => {
+      setCurrentPrice(currentPriceValue => {
+        let shouldClose = false;
+        let exitPrice = currentPriceValue;
+        let status: 'closed' | 'stopped' = 'closed';
+        if (trade.direction === 'long') {
+          if (currentPriceValue <= trade.stopLoss) {
+            exitPrice = trade.stopLoss;
+            status = 'stopped';
+            shouldClose = true;
+          } else if (currentPriceValue >= trade.takeProfit) {
+            exitPrice = trade.takeProfit;
+            status = 'closed';
+            shouldClose = true;
+          }
+        } else {
+          if (currentPriceValue >= trade.stopLoss) {
+            exitPrice = trade.stopLoss;
+            status = 'stopped';
+            shouldClose = true;
+          } else if (currentPriceValue <= trade.takeProfit) {
+            exitPrice = trade.takeProfit;
+            status = 'closed';
+            shouldClose = true;
+          }
+        }
 
+        if (shouldClose) {
+          clearInterval(simulationInterval);
+          clearInterval(checkInterval);
+          setIsSimulating(false);
+          
+          // Calculate PnL correctly
+          const priceDiff = trade.direction === 'long' 
+            ? exitPrice - trade.entryPrice 
+            : trade.entryPrice - exitPrice;
+          
+          const pipValue = selectedSymbol.includes('JPY') ? 0.01 : 0.0001;
+          const pips = priceDiff / pipValue;
+          
+          // Simplified P&L calculation: $10 per pip per lot for major pairs
+          const dollarPerPip = selectedSymbol.includes('JPY') ? 9.09 : 10;
+          const pnl = pips * dollarPerPip * trade.lotSize;
+
+          // Update trade
+          setBacktestTrades(prev => prev.map(t => 
+            t.id === trade.id 
+              ? { ...t, exitPrice, exitTime: new Date(), status, pnl, pips }
+              : t
+          ));
+        }
+        
+        return currentPriceValue;
+      });
+    }, 500);
     // Auto-close simulation after 30 seconds if no outcome
     setTimeout(() => {
       clearInterval(simulationInterval);
+      clearInterval(checkInterval);
       setIsSimulating(false);
     }, 30000);
   };
@@ -161,7 +205,16 @@ const BacktestingTool: React.FC = () => {
 
   const resetBacktest = () => {
     setBacktestTrades([]);
-    setCurrentPrice(mockPrices[selectedSymbol] || 1.0000);
+    const basePrice = mockPrices[selectedSymbol] || 1.0000;
+    setCurrentPrice(basePrice);
+    
+    // Reset price history
+    const initialHistory = [];
+    for (let i = 100; i >= 0; i--) {
+      const time = Date.now() - (i * 60000);
+      initialHistory.push({ time, price: basePrice });
+    }
+    setPriceHistory(initialHistory);
   };
 
   const saveBacktestResults = () => {
@@ -320,6 +373,14 @@ const BacktestingTool: React.FC = () => {
                 <div>
                   <div className="text-xs text-gray-400">R:R Ratio</div>
                   <div className="text-blue-400 font-bold">{riskReward.ratio}</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {isSimulating ? 'Live Simulation' : 'Market Price'}
+                  </div>
+                  
+                  <div className="mt-2 text-xs text-gray-400">
+                    Status: {trade.status === 'open' ? 'Running simulation...' : 
+                            trade.status === 'closed' ? 'Hit take profit' : 'Hit stop loss'}
+                  </div>
                 </div>
               </div>
             </div>

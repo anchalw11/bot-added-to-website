@@ -18,6 +18,7 @@ const ConsentForm: React.FC<ConsentFormProps> = ({ isOpen, onAccept, onDecline }
   });
 
   const [hasReadAll, setHasReadAll] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAgreementChange = (key: string, value: boolean) => {
     setAgreements(prev => ({ ...prev, [key]: value }));
@@ -27,20 +28,24 @@ const ConsentForm: React.FC<ConsentFormProps> = ({ isOpen, onAccept, onDecline }
 
   const handleAccept = () => {
     if (allAgreed) {
+      setIsSubmitting(true);
       localStorage.setItem('user_consent_accepted', JSON.stringify({
         timestamp: new Date().toISOString(),
         agreements,
         ipAddress: 'hidden_for_privacy',
         userAgent: navigator.userAgent
       }));
-      onAccept();
+      setTimeout(() => {
+        onAccept();
+        setIsSubmitting(false);
+      }, 1000);
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" style={{ cursor: 'auto' }}>
       <div className="bg-gray-900 rounded-2xl border border-red-500/50 max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="bg-red-600/20 border-b border-red-500/50 p-6">
@@ -73,7 +78,8 @@ const ConsentForm: React.FC<ConsentFormProps> = ({ isOpen, onAccept, onDecline }
                       type="checkbox"
                       checked={agreements.riskDisclosure}
                       onChange={(e) => handleAgreementChange('riskDisclosure', e.target.checked)}
-                      className="w-5 h-5 rounded bg-gray-700 border-red-500 text-red-600 focus:ring-red-500"
+                      className="w-5 h-5 rounded bg-gray-700 border-red-500 text-red-600 focus:ring-red-500 cursor-pointer"
+                      style={{ cursor: 'pointer' }}
                     />
                     <span className="text-white font-medium">I understand and accept all trading risks</span>
                   </label>
@@ -98,7 +104,8 @@ const ConsentForm: React.FC<ConsentFormProps> = ({ isOpen, onAccept, onDecline }
                       type="checkbox"
                       checked={agreements.noLiability}
                       onChange={(e) => handleAgreementChange('noLiability', e.target.checked)}
-                      className="w-5 h-5 rounded bg-gray-700 border-yellow-500 text-yellow-600 focus:ring-yellow-500"
+                      className="w-5 h-5 rounded bg-gray-700 border-yellow-500 text-yellow-600 focus:ring-yellow-500 cursor-pointer"
+                      style={{ cursor: 'pointer' }}
                     />
                     <span className="text-white font-medium">I waive all liability claims against TraderEdge Pro</span>
                   </label>
@@ -123,7 +130,8 @@ const ConsentForm: React.FC<ConsentFormProps> = ({ isOpen, onAccept, onDecline }
                       type="checkbox"
                       checked={agreements.educationalPurpose}
                       onChange={(e) => handleAgreementChange('educationalPurpose', e.target.checked)}
-                      className="w-5 h-5 rounded bg-gray-700 border-blue-500 text-blue-600 focus:ring-blue-500"
+                      className="w-5 h-5 rounded bg-gray-700 border-blue-500 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      style={{ cursor: 'pointer' }}
                     />
                     <span className="text-white font-medium">I understand this is educational content only</span>
                   </label>
@@ -148,7 +156,8 @@ const ConsentForm: React.FC<ConsentFormProps> = ({ isOpen, onAccept, onDecline }
                       type="checkbox"
                       checked={agreements.noFinancialAdvice}
                       onChange={(e) => handleAgreementChange('noFinancialAdvice', e.target.checked)}
-                      className="w-5 h-5 rounded bg-gray-700 border-purple-500 text-purple-600 focus:ring-purple-500"
+                      className="w-5 h-5 rounded bg-gray-700 border-purple-500 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                      style={{ cursor: 'pointer' }}
                     />
                     <span className="text-white font-medium">I understand no financial advisory relationship exists</span>
                   </label>
@@ -173,7 +182,8 @@ const ConsentForm: React.FC<ConsentFormProps> = ({ isOpen, onAccept, onDecline }
                       type="checkbox"
                       checked={agreements.dataUsage}
                       onChange={(e) => handleAgreementChange('dataUsage', e.target.checked)}
-                      className="w-5 h-5 rounded bg-gray-700 border-gray-500 text-gray-600 focus:ring-gray-500"
+                      className="w-5 h-5 rounded bg-gray-700 border-gray-500 text-gray-600 focus:ring-gray-500 cursor-pointer"
+                      style={{ cursor: 'pointer' }}
                     />
                     <span className="text-white font-medium">I agree to data usage and privacy terms</span>
                   </label>
@@ -198,7 +208,8 @@ const ConsentForm: React.FC<ConsentFormProps> = ({ isOpen, onAccept, onDecline }
                       type="checkbox"
                       checked={agreements.termsOfService}
                       onChange={(e) => handleAgreementChange('termsOfService', e.target.checked)}
-                      className="w-5 h-5 rounded bg-gray-700 border-green-500 text-green-600 focus:ring-green-500"
+                      className="w-5 h-5 rounded bg-gray-700 border-green-500 text-green-600 focus:ring-green-500 cursor-pointer"
+                      style={{ cursor: 'pointer' }}
                     />
                     <span className="text-white font-medium">I agree to the Terms of Service and Privacy Policy</span>
                   </label>
@@ -213,7 +224,8 @@ const ConsentForm: React.FC<ConsentFormProps> = ({ isOpen, onAccept, onDecline }
                   type="checkbox"
                   checked={hasReadAll}
                   onChange={(e) => setHasReadAll(e.target.checked)}
-                  className="w-5 h-5 rounded bg-gray-700 border-gray-500 text-blue-600 focus:ring-blue-500 mt-1"
+                  className="w-5 h-5 rounded bg-gray-700 border-gray-500 text-blue-600 focus:ring-blue-500 mt-1 cursor-pointer"
+                  style={{ cursor: 'pointer' }}
                 />
                 <div className="text-gray-300">
                   <p className="font-medium text-white mb-2">FINAL CONFIRMATION</p>
@@ -256,9 +268,10 @@ const ConsentForm: React.FC<ConsentFormProps> = ({ isOpen, onAccept, onDecline }
                   ? 'bg-green-600 hover:bg-green-700 text-white'
                   : 'bg-gray-700 text-gray-400 cursor-not-allowed'
               }`}
+              style={{ cursor: allAgreed ? 'pointer' : 'not-allowed' }}
             >
               <CheckCircle className="w-5 h-5" />
-              <span>Accept & Continue</span>
+              <span>{isSubmitting ? 'Processing...' : 'Accept & Continue'}</span>
             </button>
           </div>
         </div>

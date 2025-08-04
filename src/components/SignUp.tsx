@@ -255,9 +255,9 @@ const SignUp = () => {
               />
               <label htmlFor="terms" className="text-sm text-gray-300 leading-relaxed">
                 I agree to the{' '}
-                <a href="#" className="text-blue-400 hover:text-blue-300">Terms of Service</a>
+                <a href="/terms-of-service" target="_blank" className="text-blue-400 hover:text-blue-300">Terms of Service</a>
                 {' '}and{' '}
-                <a href="#" className="text-blue-400 hover:text-blue-300">Privacy Policy</a>
+                <a href="/privacy-policy" target="_blank" className="text-blue-400 hover:text-blue-300">Privacy Policy</a>
               </label>
             </div>
 

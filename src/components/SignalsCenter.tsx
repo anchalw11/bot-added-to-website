@@ -136,9 +136,17 @@ const SignalsCenter = () => {
   const calculateLotSize = (signal: Signal) => {
     if (!user) return { lotSize: 0, riskAmount: 0, pipsAtRisk: 0 };
 
-    // Get user's risk management settings from user context or use defaults
-    const accountBalance = 100000; // Default account balance
-    const riskPercentage = 1; // Default 1% risk per trade
+    // Get user's risk management settings
+    const userSettings = JSON.parse(localStorage.getItem('user_settings') || '{}');
+    const tradingPlanContext = JSON.parse(localStorage.getItem('trading_plan_context') || '{}');
+    
+    const accountBalance = tradingPlanContext.accountConfig?.size || 100000;
+    const riskPercentage = tradingPlanContext.riskConfig?.riskPercentage || 1;
+    const propFirmRules = tradingPlanContext.propFirm?.rules;
+    
+    // Check for consistency rule
+    const consistencyRule = propFirmRules?.consistencyRule;
+    const consistencyPercentage = propFirmRules?.consistencyPercentage || 0;
     
     try {
       const entryPrice = parseFloat(signal.entry);
@@ -150,9 +158,20 @@ const SignalsCenter = () => {
         return { lotSize: 0, riskAmount: 0, pipsAtRisk: 0 };
       }
       
+      let adjustedRiskPercentage = riskPercentage;
+      
+      // Apply consistency rule if applicable
+      if (consistencyRule && consistencyPercentage > 0) {
+        const profitTarget = (accountBalance * (propFirmRules.profitTarget || 10)) / 100;
+        const maxDailyProfit = (profitTarget * consistencyPercentage) / 100;
+        const maxDailyRisk = (maxDailyProfit / 2) / accountBalance * 100; // Conservative approach
+        
+        adjustedRiskPercentage = Math.min(riskPercentage, maxDailyRisk);
+      }
+      
       const result = lotSizeCalculator.calculateLotSize({
         accountBalance,
-        riskPercentage,
+        riskPercentage: adjustedRiskPercentage,
         entryPrice,
         stopLossPrice,
         currencyPair: signal.pair,
@@ -164,7 +183,8 @@ const SignalsCenter = () => {
       return {
         lotSize: result.lotSize,
         riskAmount: result.riskAmount,
-        pipsAtRisk: result.pipsAtRisk
+        pipsAtRisk: result.pipsAtRisk,
+        consistencyAdjusted: consistencyRule
       };
     } catch (error) {
       console.error('Error calculating lot size:', error);
@@ -320,7 +340,14 @@ const SignalsCenter = () => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-400">Recommended Lot Size</p>
-                    <p className="text-lg font-semibold text-blue-400">{calculateLotSize(signal).lotSize} lots</p>
+                    <div className="text-lg font-semibold text-blue-400">
+                      {calculateLotSize(signal).lotSize} lots
+                      {calculateLotSize(signal).consistencyAdjusted && (
+                        <div className="text-xs text-orange-400 mt-1">
+                          *Adjusted for consistency rule
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
@@ -341,11 +368,16 @@ const SignalsCenter = () => {
                 </div>
                 <div className="mt-2">
                   <p className="text-sm text-gray-400">Risk Management</p>
-                  <p className="text-white text-sm">
-                    Risk: ${calculateLotSize(signal).riskAmount.toFixed(2)} | 
-                    Pips at Risk: {calculateLotSize(signal).pipsAtRisk} | 
-                    Position Size: {calculateLotSize(signal).lotSize} lots
-                  </p>
+                  <div className="text-white text-sm">
+                    <div>Risk: ${calculateLotSize(signal).riskAmount.toFixed(2)}</div>
+                    <div>Pips at Risk: {calculateLotSize(signal).pipsAtRisk}</div>
+                    <div>Position Size: {calculateLotSize(signal).lotSize} lots</div>
+                    {calculateLotSize(signal).consistencyAdjusted && (
+                      <div className="text-orange-400 text-xs mt-1">
+                        ⚠️ Lot size adjusted due to consistency rule requirements
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-2 flex space-x-2">
                     {signal.ictConcepts.map(concept => (

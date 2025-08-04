@@ -69,83 +69,108 @@ const TradingPlanGenerator: React.FC = () => {
 
   // Generate trading plan
   const generateTradingPlan = (timeline: '30day' | '45day' | '60day') => {
-    const days = timeline === '30day' ? 30 : timeline === '45day' ? 45 : 60;
     const profitTarget = (accountSize * rules.profitTarget) / 100;
+    const riskPerTrade = riskConfig.riskPercentage;
+    const rewardRatio = riskConfig.riskRewardRatio;
+    const maxConsecutiveLosses = riskConfig.maxConsecutiveLosses || 3;
+    const tradingExperience = riskConfig.tradingExperience || 'intermediate';
     
-    const trades = [
-      {
-        id: 1,
-        risk: params.baseRisk,
-        reward: params.baseRisk * params.targetMultiplier,
-        timeframe: '1-2 days',
-        expectedReturn: (accountSize * params.baseRisk * params.targetMultiplier) / 100,
-        pairs: ['EUR/USD', 'GBP/USD'],
-        lotSize: 1.0,
-        stopLoss: 20,
-        takeProfit: 40
-      },
-      {
-        id: 2,
-        risk: params.baseRisk + 0.25,
-        reward: (params.baseRisk + 0.25) * params.targetMultiplier,
-        timeframe: '2-3 days',
-        expectedReturn: (accountSize * (params.baseRisk + 0.25) * params.targetMultiplier) / 100,
-        pairs: ['USD/JPY', 'XAU/USD'],
-        lotSize: 1.2,
-        stopLoss: 25,
-        takeProfit: 50
-      },
-      {
-        id: 3,
-        risk: params.maxRisk,
-        reward: params.maxRisk * params.targetMultiplier,
-        timeframe: '1-4 days',
-        expectedReturn: (accountSize * params.maxRisk * params.targetMultiplier) / 100,
-        pairs: ['AUD/USD', 'EUR/GBP'],
-        lotSize: 1.5,
-        stopLoss: 30,
-        takeProfit: 60
-      },
-      {
-        id: 4,
-        risk: params.maxRisk,
-        reward: params.maxRisk * (params.targetMultiplier + 1),
-        timeframe: '3-5 days',
-        expectedReturn: (accountSize * params.maxRisk * (params.targetMultiplier + 1)) / 100,
-        pairs: ['GBP/JPY', 'USD/CAD'],
-        lotSize: 1.8,
-        stopLoss: 35,
-        takeProfit: 70
-      },
-      {
-        id: 5,
-        risk: params.maxRisk + 0.5,
-        reward: (params.maxRisk + 0.5) * (params.targetMultiplier + 1.5),
-        timeframe: '2-6 days',
-        expectedReturn: (accountSize * (params.maxRisk + 0.5) * (params.targetMultiplier + 1.5)) / 100,
-        pairs: ['XAU/USD', 'BTC/USD'],
-        lotSize: 2.0,
-        stopLoss: 40,
-        takeProfit: 80
+    // Calculate realistic timeline based on user parameters
+    const avgTradesPerDay = tradingExperience === 'beginner' ? 1 : 
+                           tradingExperience === 'intermediate' ? 1.5 : 2;
+    const winRate = 0.65; // 65% estimated win rate
+    const avgRewardPerWin = (accountSize * riskPerTrade * rewardRatio) / 100;
+    const avgLossPerLoss = (accountSize * riskPerTrade) / 100;
+    
+    // Calculate expected profit per trade
+    const expectedProfitPerTrade = (winRate * avgRewardPerWin) - ((1 - winRate) * avgLossPerLoss);
+    const tradesNeeded = Math.ceil(profitTarget / expectedProfitPerTrade);
+    const estimatedDays = Math.ceil(tradesNeeded / avgTradesPerDay);
+    
+    // Add buffer for drawdown periods
+    const bufferDays = Math.ceil(estimatedDays * 0.3);
+    const totalDays = estimatedDays + bufferDays;
+    
+    // Generate dynamic trading plan
+    const trades = [];
+    let currentRisk = riskPerTrade;
+    let consecutiveLosses = 0;
+    let totalProfit = 0;
+    let tradeCount = 0;
+    
+    while (totalProfit < profitTarget && tradeCount < tradesNeeded * 1.5) {
+      tradeCount++;
+      
+      // Simulate trade outcome
+      const isWin = Math.random() < winRate;
+      
+      if (isWin) {
+        const profit = (accountSize * currentRisk * rewardRatio) / 100;
+        totalProfit += profit;
+        consecutiveLosses = 0;
+        
+        // Slightly increase risk after wins (max 0.1% increase)
+        if (currentRisk < params.maxRisk) {
+          currentRisk = Math.min(params.maxRisk, currentRisk + 0.1);
+        }
+        
+        trades.push({
+          id: tradeCount,
+          risk: currentRisk,
+          reward: currentRisk * rewardRatio,
+          outcome: 'win',
+          expectedReturn: profit,
+          lotSize: calculateLotSize(currentRisk, accountSize),
+          description: `Trade ${tradeCount} - WIN (+${profit.toFixed(0)})`
+        });
+      } else {
+        const loss = (accountSize * currentRisk) / 100;
+        totalProfit -= loss;
+        consecutiveLosses++;
+        
+        // Decrease risk after consecutive losses
+        if (consecutiveLosses >= maxConsecutiveLosses) {
+          currentRisk = Math.max(0.25, currentRisk * 0.8); // Reduce by 20%
+          consecutiveLosses = 0; // Reset counter after adjustment
+        }
+        
+        trades.push({
+          id: tradeCount,
+          risk: currentRisk,
+          reward: 0,
+          outcome: 'loss',
+          expectedReturn: -loss,
+          lotSize: calculateLotSize(currentRisk, accountSize),
+          description: `Trade ${tradeCount} - LOSS (-${loss.toFixed(0)})`
+        });
       }
-    ];
+    }
+    
+    // Calculate lot size based on risk percentage
+    function calculateLotSize(riskPercent: number, accountBalance: number) {
+      const riskAmount = (accountBalance * riskPercent) / 100;
+      const pipValue = 10; // Simplified: $10 per pip for standard lot
+      const averagePipsAtRisk = 20; // Average 20 pips stop loss
+      return Math.round((riskAmount / (averagePipsAtRisk * pipValue)) * 100) / 100;
+    }
 
-    const totalExpectedReturn = trades.reduce((sum, trade) => sum + trade.expectedReturn, 0);
-    const phase1Return = totalExpectedReturn;
-    const phase2Return = profitTarget - phase1Return;
+    const winningTrades = trades.filter(t => t.outcome === 'win');
+    const losingTrades = trades.filter(t => t.outcome === 'loss');
 
     return {
       trades,
       timeline: {
-        phase1: Math.min(15, days / 2),
-        phase2: days - Math.min(15, days / 2),
-        total: days
+        estimatedDays: totalDays,
+        tradesNeeded: tradesNeeded,
+        avgTradesPerDay: avgTradesPerDay,
+        total: totalDays
       },
       targets: {
-        phase1Return,
-        phase2Return,
         totalTarget: profitTarget,
-        monthlyEarnings: timeline === '30day' ? profitTarget : (profitTarget * 30) / days
+        expectedProfit: totalProfit,
+        winningTrades: winningTrades.length,
+        losingTrades: losingTrades.length,
+        finalWinRate: (winningTrades.length / trades.length) * 100
       }
     };
   };
@@ -331,50 +356,44 @@ const TradingPlanGenerator: React.FC = () => {
 
             {/* Plan Timeline */}
             <div className="bg-gray-800/60 backdrop-blur-sm rounded-2xl border border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Plan Completion Timeline</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="bg-blue-600/20 border border-blue-600 rounded-xl p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Calendar className="w-4 h-4 text-blue-400" />
-                      <span className="text-blue-400 font-medium">Phase 1 (Days 1-{plan.timeline.phase1})</span>
-                    </div>
-                    <div className="text-white">Complete Trades 1-5</div>
-                    <div className="text-blue-500 font-semibold">
-                      Target: +${plan.targets.phase1Return.toFixed(0)} ({((plan.targets.phase1Return / accountSize) * 100).toFixed(1)}%)
-                    </div>
-                  </div>
-                  
-                  <div className="bg-yellow-600/20 border border-yellow-600 rounded-xl p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Calendar className="w-4 h-4 text-yellow-400" />
-                      <span className="text-yellow-400 font-medium">Phase 2 (Days {plan.timeline.phase1 + 1}-{plan.timeline.total})</span>
-                    </div>
-                    <div className="text-white">Scale to higher risk trades</div>
-                    <div className="text-yellow-500 font-semibold">
-                      Target: +${plan.targets.phase2Return.toFixed(0)} ({((plan.targets.phase2Return / accountSize) * 100).toFixed(1)}%)
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-gray-700/50 rounded-xl p-4">
-                  <h4 className="text-white font-medium mb-4">Expected Results</h4>
+              <h3 className="text-lg font-semibold text-white mb-4">Personalized Trading Plan Timeline</h3>
+              <div className="bg-gray-700/50 rounded-xl p-6">
+                <h4 className="text-white font-medium mb-4">Your Custom Plan Results</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Total Timeline:</span>
-                      <span className="text-white">{plan.timeline.total} days</span>
+                      <span className="text-gray-400">Estimated Timeline:</span>
+                      <span className="text-white font-semibold">{plan.timeline.estimatedDays} days</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Total Target:</span>
+                      <span className="text-gray-400">Total Trades Needed:</span>
+                      <span className="text-white font-semibold">{plan.timeline.tradesNeeded}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Avg Trades/Day:</span>
+                      <span className="text-white font-semibold">{plan.timeline.avgTradesPerDay}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Starting Risk:</span>
+                      <span className="text-white font-semibold">{riskConfig.riskPercentage}%</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Profit Target:</span>
                       <span className="text-blue-500 font-semibold">${plan.targets.totalTarget.toFixed(0)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Monthly Earnings:</span>
-                      <span className="text-blue-500 font-semibold">${plan.targets.monthlyEarnings.toFixed(0)}</span>
+                      <span className="text-gray-400">Expected Wins:</span>
+                      <span className="text-green-400 font-semibold">{plan.targets.winningTrades}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Success Rate:</span>
-                      <span className="text-blue-500 font-semibold">87-95%</span>
+                      <span className="text-gray-400">Expected Losses:</span>
+                      <span className="text-red-400 font-semibold">{plan.targets.losingTrades}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Final Win Rate:</span>
+                      <span className="text-blue-500 font-semibold">{plan.targets.finalWinRate.toFixed(1)}%</span>
                     </div>
                   </div>
                 </div>
@@ -383,34 +402,41 @@ const TradingPlanGenerator: React.FC = () => {
 
             {/* Risk Management Protocol */}
             <div className="bg-gray-800/60 backdrop-blur-sm rounded-2xl border border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Risk Management Protocol</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">Dynamic Risk Management Protocol</h3>
+              <div className="bg-blue-600/20 border border-blue-600 rounded-lg p-4 mb-4">
+                <h4 className="text-blue-400 font-semibold mb-2">Adaptive Risk System</h4>
+                <p className="text-gray-300 text-sm">
+                  Your plan automatically adjusts risk based on performance. After {maxConsecutiveLosses} consecutive losses, 
+                  risk reduces by 20%. After wins, risk gradually increases up to your maximum of {params.maxRisk}%.
+                </p>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-3">
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-blue-500" />
-                    <span className="text-white text-sm">Maximum daily loss: {rules.dailyLoss}% of account</span>
+                    <span className="text-white text-sm">Starting risk per trade: {riskConfig.riskPercentage}%</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-blue-500" />
-                    <span className="text-white text-sm">Maximum total open risk: 3% of account</span>
+                    <span className="text-white text-sm">Risk-reward ratio: 1:{riskConfig.riskRewardRatio}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-blue-500" />
-                    <span className="text-white text-sm">Consecutive loss limit: 3 trades maximum</span>
+                    <span className="text-white text-sm">Max consecutive losses: {maxConsecutiveLosses}</span>
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-blue-500" />
-                    <span className="text-white text-sm">Recovery protocol after losses</span>
+                    <span className="text-white text-sm">Daily loss limit: {rules.dailyLoss}%</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-blue-500" />
-                    <span className="text-white text-sm">Automated position sizing</span>
+                    <span className="text-white text-sm">Max drawdown: {rules.maxDrawdown}%</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-blue-500" />
-                    <span className="text-white text-sm">Real-time rule compliance monitoring</span>
+                    <span className="text-white text-sm">{rules.consistencyRule ? `Consistency rule: ${rules.consistencyPercentage}%` : 'No consistency rule'}</span>
                   </div>
                 </div>
               </div>

@@ -3,12 +3,28 @@
 @tailwind utilities;
 
 body {
-  cursor: none;
+  cursor: auto;
 }
 
 @layer base {
   body {
     @apply bg-gray-950 text-gray-300;
+  }
+  
+  input, button, select, textarea {
+    cursor: auto !important;
+  }
+  
+  input[type="checkbox"], input[type="radio"] {
+    cursor: pointer !important;
+  }
+  
+  button:not(:disabled) {
+    cursor: pointer !important;
+  }
+  
+  a {
+    cursor: pointer !important;
   }
 }
 

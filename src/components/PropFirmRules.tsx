@@ -53,6 +53,25 @@ const PropFirmRules: React.FC = () => {
         'Breaching this rule results in immediate account termination'
       ]
     },
+    ...(currentPropFirm.rules.consistencyRule ? [{
+      id: 'consistency-rule',
+      category: 'profit',
+      title: 'Consistency Rule',
+      description: 'No single day can exceed this percentage of total profit',
+      value: `${currentPropFirm.rules.consistencyPercentage}%`,
+      dollarValue: 'Per Day Max',
+      status: 'pending',
+      icon: <Target className="w-5 h-5" />,
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-600/20',
+      borderColor: 'border-orange-600',
+      details: [
+        'Limits daily profit to prevent over-concentration',
+        'Calculated as percentage of total profit target',
+        'Encourages consistent daily performance',
+        'Violation can result in account termination'
+      ]
+    }] : []),
     {
       id: 'max-drawdown',
       category: 'risk',
@@ -213,6 +232,7 @@ const PropFirmRules: React.FC = () => {
       'daily-loss': { current: 1.2, percentage: 24 },
       'max-drawdown': { current: 2.1, percentage: 21 },
       'profit-target': { current: 6.8, percentage: 68 },
+      'consistency-rule': { current: 25, percentage: currentPropFirm.rules.consistencyPercentage ? (25 / currentPropFirm.rules.consistencyPercentage) * 100 : 0 },
       'min-trading-days': { current: 7, percentage: 70 },
       'max-position-size': { current: 0.8, percentage: 40 },
       'scaling-target': { current: 6.8, percentage: 68 }

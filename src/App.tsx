@@ -20,6 +20,8 @@ import { AdminProvider } from './contexts/AdminContext';
 import Features from './components/Features';
 import About from './components/About';
 import Terms from './components/Terms';
+import TermsOfService from './components/TermsOfService';
+import PrivacyPolicy from './components/PrivacyPolicy';
 import FAQ from './components/FAQ';
 import { SignalDistributionProvider } from './components/SignalDistributionService';
 import FuturisticCursor from './components/FuturisticCursor';
@@ -53,6 +55,8 @@ function App() {
                   <Route path="/features" element={<Features />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/terms" element={<Terms />} />
+                  <Route path="/terms-of-service" element={<TermsOfService />} />
+                  <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                   <Route path="/faq" element={<FAQ />} />
                 </Routes>
               </div>
