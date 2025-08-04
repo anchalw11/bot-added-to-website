@@ -4,7 +4,7 @@ import SettingsModal from './SettingsModal';
 import FuturisticBackground from './FuturisticBackground';
 import FuturisticCursor from './FuturisticCursor';
 import CryptoDashboard from './CryptoDashboard';
-import ForexDashboard from './ForexDashboard';
+import ForexSignalGenerator from './ForexSignalGenerator';
 
 const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [activeTab, setActiveTab] = useState('forex');
@@ -215,7 +215,7 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
 
             {activeTab === 'forex' && (
               <div className="animate-fade-in-up">
-                <ForexDashboard isBotRunning={isForexBotRunning} setIsBotRunning={setIsForexBotRunning} />
+                <ForexSignalGenerator isBotRunning={isForexBotRunning} setIsBotRunning={setIsForexBotRunning} />
               </div>
             )}
 
