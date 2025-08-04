@@ -28,35 +28,41 @@ const TradingPlanGenerator: React.FC = () => {
   
   const riskTolerance = getRiskTolerance(riskConfig.riskPercentage);
 
-  // Prop firm rules database
-  const propFirmRules = {
-    FTMO: {
-      dailyLoss: 5,
-      maxDrawdown: 10,
-      profitTarget: 10,
-      minTradingDays: 10,
-      maxPositionSize: 2,
-      scalingTarget: 10
-    },
-    MyForexFunds: {
-      dailyLoss: 5,
-      maxDrawdown: 12,
-      profitTarget: 8,
-      minTradingDays: 5,
-      maxPositionSize: 3,
-      scalingTarget: 8
-    },
-    'The5%ers': {
-      dailyLoss: 5,
-      maxDrawdown: 4,
-      profitTarget: 6,
-      minTradingDays: 6,
-      maxPositionSize: 1,
-      scalingTarget: 6
-    }
+  // Extract profit target from prop firm rules
+  const extractProfitTarget = (profitTargetString: string): number => {
+    // Extract first percentage from strings like "10% (Phase 1), 5% (Phase 2)" or "10%"
+    const match = profitTargetString.match(/(\d+(?:\.\d+)?)%/);
+    return match ? parseFloat(match[1]) : 10; // Default to 10% if can't parse
   };
 
-  const rules = propFirmRules[propFirm.name as keyof typeof propFirmRules] || propFirmRules.FTMO;
+  // Extract daily loss from prop firm rules
+  const extractDailyLoss = (dailyLossString: string): number => {
+    const match = dailyLossString.match(/(\d+(?:\.\d+)?)%/);
+    return match ? parseFloat(match[1]) : 5; // Default to 5% if can't parse
+  };
+
+  // Extract max drawdown from prop firm rules
+  const extractMaxDrawdown = (maxLossString: string): number => {
+    const match = maxLossString.match(/(\d+(?:\.\d+)?)%/);
+    return match ? parseFloat(match[1]) : 10; // Default to 10% if can't parse
+  };
+
+  // Extract min trading days
+  const extractMinTradingDays = (minDaysString: string): number => {
+    const match = minDaysString.match(/(\d+)/);
+    return match ? parseInt(match[1]) : 10; // Default to 10 days if can't parse
+  };
+
+  const rules = {
+    dailyLoss: extractDailyLoss(propFirm.dailyLossLimit),
+    maxDrawdown: extractMaxDrawdown(propFirm.maximumLoss),
+    profitTarget: extractProfitTarget(propFirm.profitTargets),
+    minTradingDays: extractMinTradingDays(propFirm.minTradingDays),
+    maxPositionSize: 2, // Default
+    scalingTarget: 10, // Default
+    consistencyRule: propFirm.consistencyRule || false,
+    consistencyPercentage: propFirm.consistencyPercentage || 0
+  };
 
   // Risk parameters based on tolerance
   const riskParams = {
@@ -98,6 +104,14 @@ const TradingPlanGenerator: React.FC = () => {
     let totalProfit = 0;
     let tradeCount = 0;
     
+    // Calculate lot size based on risk percentage
+    function calculateLotSize(riskPercent: number, accountBalance: number) {
+      const riskAmount = (accountBalance * riskPercent) / 100;
+      const pipValue = 10; // Simplified: $10 per pip for standard lot
+      const averagePipsAtRisk = 20; // Average 20 pips stop loss
+      return Math.round((riskAmount / (averagePipsAtRisk * pipValue)) * 100) / 100;
+    }
+
     while (totalProfit < profitTarget && tradeCount < tradesNeeded * 1.5) {
       tradeCount++;
       
@@ -123,7 +137,9 @@ const TradingPlanGenerator: React.FC = () => {
           lotSize: calculateLotSize(currentRisk, accountSize),
           description: `Trade ${tradeCount} - WIN (+${profit.toFixed(0)})`,
           timeframe: '1H',
-          pairs: ['EURUSD', 'GBPUSD', 'USDJPY']
+          pairs: ['EURUSD', 'GBPUSD', 'USDJPY'],
+          stopLoss: 0,
+          takeProfit: 0
         });
       } else {
         const loss = (accountSize * currentRisk) / 100;
@@ -145,17 +161,11 @@ const TradingPlanGenerator: React.FC = () => {
           lotSize: calculateLotSize(currentRisk, accountSize),
           description: `Trade ${tradeCount} - LOSS (-${loss.toFixed(0)})`,
           timeframe: '1H',
-          pairs: ['EURUSD', 'GBPUSD', 'USDJPY']
+          pairs: ['EURUSD', 'GBPUSD', 'USDJPY'],
+          stopLoss: 0,
+          takeProfit: 0
         });
       }
-    }
-    
-    // Calculate lot size based on risk percentage
-    function calculateLotSize(riskPercent: number, accountBalance: number) {
-      const riskAmount = (accountBalance * riskPercent) / 100;
-      const pipValue = 10; // Simplified: $10 per pip for standard lot
-      const averagePipsAtRisk = 20; // Average 20 pips stop loss
-      return Math.round((riskAmount / (averagePipsAtRisk * pipValue)) * 100) / 100;
     }
 
     const winningTrades = trades.filter(t => t.outcome === 'win');
@@ -234,7 +244,7 @@ const TradingPlanGenerator: React.FC = () => {
             </p>
             
             {/* Configuration Summary */}
-            <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700 p-4 max-w-2xl mx-auto">
+            <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700 p-4 max-w-lg mx-auto">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div className="text-center">
                   <div className="text-blue-400 font-semibold">{propFirm.name}</div>
@@ -315,34 +325,57 @@ const TradingPlanGenerator: React.FC = () => {
                   <div className="text-sm text-gray-400">${(accountSize * rules.maxDrawdown / 100).toLocaleString()}</div>
                 </div>
               </div>
+
+              {/* Consistency Rule Display */}
+              {rules.consistencyRule && (
+                <div className="mt-4 bg-orange-600/20 border border-orange-600 rounded-xl p-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <AlertTriangle className="w-4 h-4 text-orange-400" />
+                    <span className="text-white font-medium">Consistency Rule</span>
+                  </div>
+                  <div className="text-lg font-bold text-orange-400">{rules.consistencyPercentage}%</div>
+                  <div className="text-sm text-gray-400">
+                    Maximum daily profit as % of total target: ${((accountSize * rules.profitTarget / 100) * rules.consistencyPercentage / 100).toLocaleString()}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Trading Sequence */}
             <div className="bg-gray-800/60 backdrop-blur-sm rounded-2xl border border-gray-700 p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Detailed Trading Sequence</h3>
-              <div className="space-y-4">
-                {plan.trades.map((trade, index) => (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {plan.trades.slice(0, 20).map((trade, index) => (
                   <div key={trade.id} className="bg-gray-700/50 rounded-xl p-4 border border-gray-600">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
+                          trade.outcome === 'win' ? 'bg-green-600' : 'bg-red-600'
+                        }`}>
                           {trade.id}
                         </div>
                         <span className="text-white font-medium">Trade {trade.id}</span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          trade.outcome === 'win' ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'
+                        }`}>
+                          {trade.outcome.toUpperCase()}
+                        </span>
                       </div>
-                      <div className="text-blue-500 font-semibold">
-                        +${trade.expectedReturn.toFixed(0)}
+                      <div className={`font-semibold ${
+                        trade.expectedReturn >= 0 ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {trade.expectedReturn >= 0 ? '+' : ''}${trade.expectedReturn.toFixed(0)}
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <div className="text-gray-400">Risk</div>
-                        <div className="text-white font-medium">{trade.risk}%</div>
+                        <div className="text-white font-medium">{trade.risk.toFixed(2)}%</div>
                       </div>
                       <div>
-                        <div className="text-gray-400">Reward</div>
-                        <div className="text-blue-400 font-medium">{trade.reward}%</div>
+                        <div className="text-gray-400">Lot Size</div>
+                        <div className="text-blue-400 font-medium">{trade.lotSize}</div>
                       </div>
                       <div>
                         <div className="text-gray-400">Timeframe</div>
@@ -355,6 +388,11 @@ const TradingPlanGenerator: React.FC = () => {
                     </div>
                   </div>
                 ))}
+                {plan.trades.length > 20 && (
+                  <div className="text-center text-gray-400 text-sm">
+                    ... and {plan.trades.length - 20} more trades
+                  </div>
+                )}
               </div>
             </div>
 
@@ -410,7 +448,7 @@ const TradingPlanGenerator: React.FC = () => {
               <div className="bg-blue-600/20 border border-blue-600 rounded-lg p-4 mb-4">
                 <h4 className="text-blue-400 font-semibold mb-2">Adaptive Risk System</h4>
                 <p className="text-gray-300 text-sm">
-                  Your plan automatically adjusts risk based on performance. After {maxConsecutiveLosses} consecutive losses, 
+                  Your plan automatically adjusts risk based on performance. After {riskConfig.maxConsecutiveLosses || 3} consecutive losses, 
                   risk reduces by 20%. After wins, risk gradually increases up to your maximum of {params.maxRisk}%.
                 </p>
               </div>
@@ -426,7 +464,7 @@ const TradingPlanGenerator: React.FC = () => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-blue-500" />
-                    <span className="text-white text-sm">Max consecutive losses: {maxConsecutiveLosses}</span>
+                    <span className="text-white text-sm">Max consecutive losses: {riskConfig.maxConsecutiveLosses || 3}</span>
                   </div>
                 </div>
                 <div className="space-y-3">
@@ -440,7 +478,9 @@ const TradingPlanGenerator: React.FC = () => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-blue-500" />
-                    <span className="text-white text-sm">{rules.consistencyRule ? `Consistency rule: ${rules.consistencyPercentage}%` : 'No consistency rule'}</span>
+                    <span className="text-white text-sm">
+                      {rules.consistencyRule ? `Consistency rule: ${rules.consistencyPercentage}%` : 'No consistency rule'}
+                    </span>
                   </div>
                 </div>
               </div>
