@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMC Trading Bot - Smart Money Concepts</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">SMC Trading Bot</h1>
+            <p class="subtitle">Real-Time Smart Money Concepts - NO FAKE DATA</p>
+            
+            <div class="timezone-selector">
+                <label style="color: #4fc3f7; font-weight: 600;">🌍 Timezone:</label>
+                <select id="timezoneSelect" onchange="changeTimezone()">
+                    <option value="UTC">UTC (GMT+0)</option>
+                    <option value="America/New_York">New York (EST/EDT)</option>
+                    <option value="Europe/London">London (GMT/BST)</option>
+                    <option value="Asia/Tokyo">Tokyo (JST)</option>
+                    <option value="Asia/Shanghai">Shanghai (CST)</option>
+                    <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
+                </select>
+            </div>
+
+            <div class="api-status">
+                <div class="api-card api-active">
+                    <div class="api-name">Final Hybrid Engine</div>
+                    <div class="api-calls">CurrencyBeacon & taapi.io</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-section">
+            <div class="status-info">
+                <div class="status-dot connected" id="statusDot"></div>
+                <div>
+                    <div id="statusText">System Connected</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;" id="dataSource">Live data sources active</div>
+                </div>
+            </div>
+            <div class="datetime-info">
+                <div id="currentDateTime"></div>
+                <div style="font-size: 0.8rem; opacity: 0.7;">Last Update: <span id="lastUpdate">Never</span></div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="panel">
+                <h3 class="panel-title">⚙️ SMC Trading Settings</h3>
+
+                <div class="form-group">
+                    <label class="form-label">Symbol</label>
+                    <select class="form-control" id="symbol">
+                        <option value="">Select Symbol</option>
+                        <option value="ALL">📊 ALL SYMBOLS</option>
+                        <optgroup label="📈 Stocks">
+                            <option value="US30">US30</option>
+                        </optgroup>
+                        <optgroup label="🥇 Commodities">
+                            <option value="XAU/USD">XAU/USD (Gold) ⭐</option>
+                            <option value="XAG/USD">XAG/USD (Silver)</option>
+                            <option value="USOIL">US Oil (WTI)</option>
+                        </optgroup>
+                        <optgroup label=" Forex Majors">
+                            <option value="EUR/USD">EUR/USD</option>
+                            <option value="GBP/USD">GBP/USD</option>
+                            <option value="USD/JPY">USD/JPY</option>
+                            <option value="USD/CHF">USD/CHF</option>
+                            <option value="AUD/USD">AUD/USD</option>
+                            <option value="USD/CAD">USD/CAD</option>
+                            <option value="NZD/USD">NZD/USD</option>
+                        </optgroup>
+                        <optgroup label="💱 Forex Crosses">
+                            <option value="EUR/JPY">EUR/JPY</option>
+                            <option value="GBP/JPY">GBP/JPY</option>
+                            <option value="EUR/GBP">EUR/GBP</option>
+                            <option value="EUR/AUD">EUR/AUD</option>
+                            <option value="GBP/AUD">GBP/AUD</option>
+                            <option value="AUD/CAD">AUD/CAD</option>
+                            <option value="CAD/JPY">CAD/JPY</option>
+                            <option value="CHF/JPY">CHF/JPY</option>
+                            <option value="AUD/CHF">AUD/CHF</option>
+                            <option value="CAD/CHF">CAD/CHF</option>
+                            <option value="EUR/CHF">EUR/CHF</option>
+                            <option value="GBP/CHF">GBP/CHF</option>
+                            <option value="NZD/CAD">NZD/CAD</option>
+                            <option value="NZD/JPY">NZD/JPY</option>
+                            <option value="AUD/NZD">AUD/NZD</option>
+                        </optgroup>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Timeframe</label>
+                    <select class="form-control" id="timeframe">
+                        <option value="">Select Timeframe</option>
+                        <option value="ALL">⏰ ALL TIMEFRAMES</option>
+                        <option value="1m">1 Minute</option>
+                        <option value="3m">3 Minutes</option>
+                        <option value="5m">5 Minutes</option>
+                        <option value="10m">10 Minutes</option>
+                        <option value="15m">15 Minutes</option>
+                        <option value="30m">30 Minutes</option>
+                        <option value="1h">1 Hour</option>
+                        <option value="2h">2 Hours</option>
+                        <option value="4h">4 Hours</option>
+                        <option value="6h">6 Hours</option>
+                        <option value="12h">12 Hours</option>
+                        <option value="1d">1 Day</option>
+                        <option value="3d">3 Days</option>
+                        <option value="1w">1 Week</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Multiple Targets (R:R)</label>
+                    <input type="text" class="form-control" id="targets" placeholder="1,2,3,4,5">
+                </div>
+                
+                <button class="btn btn-primary" onclick="startAnalysis()" id="startBtn">
+                    🚀 Start Real Data Analysis
+                </button>
+                <button class="btn btn-danger" onclick="stopAnalysis()" id="stopBtn" disabled>
+                    ⏹️ Stop Analysis
+                </button>
+                <button class="btn btn-secondary" onclick="refreshSystem()">
+                    🔄 Refresh System
+                </button>
+            </div>
+
+            <div class="panel">
+                <h3 class="panel-title">📊 Market Statistics</h3>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Active Symbols</div>
+                        <div class="stat-value" id="activeSymbols">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Live Signals</div>
+                        <div class="stat-value" id="liveSignals">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Price Updates</div>
+                        <div class="stat-value" id="priceUpdates">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Win Rate</div>
+                        <div class="stat-value" id="winRate">--%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">API Calls</div>
+                        <div class="stat-value" id="totalApiCalls">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Data Accuracy</div>
+                        <div class="stat-value" id="dataAccuracy">--%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" id="insiderAnalysisContainer" style="display: none;">
+                <!-- Insider analysis will be injected here -->
+            </div>
+
+            <div class="panel">
+                <h3 class="panel-title">📈 Live Price Feed</h3>
+                <div class="price-feed" id="priceFeed">
+                    <div style="text-align: center; padding: 40px; opacity: 0.7;">
+                        <p>🔄 Initializing real data sources...</p>
+                        <p style="font-size: 11px; margin-top: 10px;">Only verified prices will appear - NO FAKE DATA</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="signals-section">
+            <h3 class="panel-title">🎯 Live Trading Signals (SMC Analysis)</h3>
+            <div id="signalsContainer">
+                <div class="no-signals">
+                    <p>� Configure settings and start analysis for live signals</p>
+                    <p style="font-size: 0.9rem; margin-top: 10px; opacity: 0.8;">Real-time SMC structure analysis with verified data only</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3 class="panel-title">� Live Activity Logs</h3>
+            <div class="logs" id="logs">
+                <div class="log-entry">
+                    <span class="log-time">[INIT]</span> <span class="log-success">Real Data Only SMC System Initialized</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
