@@ -121,7 +121,9 @@ const TradingPlanGenerator: React.FC = () => {
           outcome: 'win',
           expectedReturn: profit,
           lotSize: calculateLotSize(currentRisk, accountSize),
-          description: `Trade ${tradeCount} - WIN (+${profit.toFixed(0)})`
+          description: `Trade ${tradeCount} - WIN (+${profit.toFixed(0)})`,
+          timeframe: '1H',
+          pairs: ['EURUSD', 'GBPUSD', 'USDJPY']
         });
       } else {
         const loss = (accountSize * currentRisk) / 100;
@@ -141,7 +143,9 @@ const TradingPlanGenerator: React.FC = () => {
           outcome: 'loss',
           expectedReturn: -loss,
           lotSize: calculateLotSize(currentRisk, accountSize),
-          description: `Trade ${tradeCount} - LOSS (-${loss.toFixed(0)})`
+          description: `Trade ${tradeCount} - LOSS (-${loss.toFixed(0)})`,
+          timeframe: '1H',
+          pairs: ['EURUSD', 'GBPUSD', 'USDJPY']
         });
       }
     }
